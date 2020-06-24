@@ -4,6 +4,7 @@
 //
 
 #include <jni.h>
+#include <set>
 #include <android/native_window_jni.h>
 #include <log.h>
 #include <android/asset_manager.h>
@@ -476,38 +477,40 @@ Java_com_steven_avgraphics_view_CameraPreviewView__1stop(JNIEnv *env, jclass typ
 
 
 // --- VideoPlayActivity
-YuvRenderer *yuvRenderer = nullptr;
+//YuvRenderer *yuvRenderer = nullptr;
+set<YuvRenderer> yuvRenderers;
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_steven_avgraphics_activity_VideoPlayActivity__1startGL(JNIEnv *env, jclass type,
+Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1addSurface(JNIEnv *env, jclass type,
                                                                 jobject surface, jint width,
                                                                 jint height, jint imgWidth,
                                                                 jint imgHeight, jint frameRate,
                                                                 jobject manager) {
     unique_lock<mutex> lock(gMutex);
-    if (yuvRenderer) {
-        yuvRenderer->stop();
-        delete yuvRenderer;
-    }
+//    if (yuvRenderer) {
+//        yuvRenderer->stop();
+//        delete yuvRenderer;
+//    }
     AAssetManager *assetManager = AAssetManager_fromJava(env, manager);
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-    yuvRenderer = new YuvRenderer(window);
+    YuvRenderer *yuvRenderer = new YuvRenderer(window);
     yuvRenderer->setAssetManager(assetManager);
     yuvRenderer->setTexSize(imgWidth, imgHeight);
     yuvRenderer->resize(width, height);
     yuvRenderer->start();
+    yuvRenderers.insert(*yuvRenderer);
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_steven_avgraphics_activity_VideoPlayActivity__1drawGL(JNIEnv *env, jclass type,
+Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *env, jclass type,
                                                                jbyteArray pixel_, jint length,
                                                                jint imgWidth, jint imgHeight,
                                                                jint pixelFormat,
                                                                jfloatArray matrix_) {
     unique_lock<mutex> lock(gMutex);
-    if (!yuvRenderer) {
+    if (yuvRenderers.empty()) {
         LOGE("yuvRenderer is null");
         return;
     }
@@ -524,9 +527,12 @@ Java_com_steven_avgraphics_activity_VideoPlayActivity__1drawGL(JNIEnv *env, jcla
     Yuv *yuv = convertToI420(model);
 
     if (yuv) {
-        yuvRenderer->setYuv(yuv);
-        yuvRenderer->setMatrix(matrix);
-        yuvRenderer->draw();
+        set<YuvRenderer>::iterator yuvRenderer;
+        for(yuvRenderer = yuvRenderers.begin(); yuvRenderer != yuvRenderers.end(); yuvRenderer++){
+            yuvRenderer->setYuv(yuv);
+            yuvRenderer->setMatrix(matrix);
+            yuvRenderer->draw();
+        }
     }
 
     env->ReleaseByteArrayElements(pixel_, pixel, 0);
@@ -538,14 +544,11 @@ Java_com_steven_avgraphics_activity_VideoPlayActivity__1drawGL(JNIEnv *env, jcla
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_steven_avgraphics_activity_VideoPlayActivity__1stopGL(JNIEnv *env, jclass type) {
+Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1stopGL(JNIEnv *env, jclass type) {
     unique_lock<mutex> lock(gMutex);
     if (yuvRenderer) {
         yuvRenderer->stop();
         delete yuvRenderer;
         yuvRenderer = nullptr;
     }
-    LOGI("video player stopped");
-}
-
-#pragma clang diagnostic pop
+    LOGI("video player stopped")

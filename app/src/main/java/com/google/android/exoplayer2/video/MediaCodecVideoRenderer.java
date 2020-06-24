@@ -39,6 +39,7 @@ import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.FormatHolder;
 import com.google.android.exoplayer2.PlayerMessage.Target;
 import com.google.android.exoplayer2.RendererCapabilities;
+import com.google.android.exoplayer2.avgraphics.SurfaceEntry;
 import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
 import com.google.android.exoplayer2.drm.DrmInitData;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
@@ -57,6 +58,7 @@ import com.google.android.exoplayer2.util.TraceUtil;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.video.VideoRendererEventListener.EventDispatcher;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -127,11 +129,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   private final long[] pendingOutputStreamSwitchTimesUs;
 
   private CodecMaxValues codecMaxValues;
+  private VideoGraphicsRenderer videoGraphicsRenderer;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
 
-  private Surface surface;
-  private Surface dummySurface;
+  private List<SurfaceEntry> surfaces;
+  //private Surface dummySurface;
   @C.VideoScalingMode
   private int scalingMode;
   private boolean renderedFirstFrame;
@@ -286,8 +289,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     this.allowedJoiningTimeMs = allowedJoiningTimeMs;
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
     this.context = context.getApplicationContext();
+    surfaces = new ArrayList<>();
     frameReleaseTimeHelper = new VideoFrameReleaseTimeHelper(this.context);
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
+    videoGraphicsRenderer = new VideoGraphicsRenderer(context);
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     pendingOutputStreamOffsetsUs = new long[MAX_PENDING_OUTPUT_STREAM_OFFSET_COUNT];
     pendingOutputStreamSwitchTimesUs = new long[MAX_PENDING_OUTPUT_STREAM_OFFSET_COUNT];
@@ -422,8 +427,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 
   @Override
   public boolean isReady() {
-    if (super.isReady() && (renderedFirstFrame || (dummySurface != null && surface == dummySurface)
-        || getCodec() == null || tunneling)) {
+    if (super.isReady() && (renderedFirstFrame || (surfaces.size() > 0) || getCodec() == null || tunneling)) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -477,12 +481,16 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     try {
       super.onReset();
     } finally {
-      if (dummySurface != null) {
-        if (surface == dummySurface) {
-          surface = null;
+      if (surfaces.size() > 0) {
+//        if (surface == dummySurface) {
+//          surface = null;
+//        }
+//        dummySurface.release();
+//        dummySurface = null;
+        for (SurfaceEntry surfaceEntry : surfaces){
+          surfaceEntry.getSurface().release();
         }
-        dummySurface.release();
-        dummySurface = null;
+        surfaces.clear();
       }
     }
   }
@@ -490,7 +498,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   @Override
   public void handleMessage(int messageType,Object message) throws ExoPlaybackException {
     if (messageType == C.MSG_SET_SURFACE) {
-      setSurface((Surface) message);
+      addSurface((SurfaceEntry) message);
     } else if (messageType == C.MSG_SET_SCALING_MODE) {
       scalingMode = (Integer) message;
       MediaCodec codec = getCodec();
@@ -504,33 +512,34 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     }
   }
 
-  private void setSurface(Surface surface) throws ExoPlaybackException {
-    if (surface == null) {
-      // Use a dummy surface if possible.
-      if (dummySurface != null) {
-        surface = dummySurface;
-      } else {
-        MediaCodecInfo codecInfo = getCodecInfo();
-        if (codecInfo != null && shouldUseDummySurface(codecInfo)) {
-          dummySurface = DummySurface.newInstanceV17(context, codecInfo.secure);
-          surface = dummySurface;
-        }
-      }
-    }
+  private void addSurface(SurfaceEntry surface) throws ExoPlaybackException {
+//    if (surface == null) {
+//      // Use a dummy surface if possible.
+//      if (dummySurface != null) {
+//        surface = dummySurface;
+//      } else {
+//        MediaCodecInfo codecInfo = getCodecInfo();
+//        if (codecInfo != null && shouldUseDummySurface(codecInfo)) {
+//          dummySurface = DummySurface.newInstanceV17(context, codecInfo.secure);
+//          surface = dummySurface;
+//        }
+//      }
+//    }
     // We only need to update the codec if the surface has changed.
-    if (this.surface != surface) {
-      this.surface = surface;
+    videoGraphicsRenderer.addSurfaceEntry(surface);
+    if (this.surfaces.contains(surface)) {
+      this.surfaces.add(surface);
       int state = getState();
       MediaCodec codec = getCodec();
       if (codec != null) {
         if (Util.SDK_INT >= 23 && surface != null && !codecNeedsSetOutputSurfaceWorkaround) {
-          setOutputSurfaceV23(codec, surface);
+          //setOutputSurfaceV23(codec, surface);
         } else {
           releaseCodec();
           maybeInitCodec();
         }
       }
-      if (surface != null && surface != dummySurface) {
+      if (surface != null) {
         // If we know the video size, report it again immediately.
         maybeRenotifyVideoSizeChanged();
         // We haven't rendered to the new surface yet.
@@ -543,7 +552,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
         clearReportedVideoSize();
         clearRenderedFirstFrame();
       }
-    } else if (surface != null && surface != dummySurface) {
+    } else if (surface != null) {
       // The surface is set and unchanged. If we know the video size and/or have already rendered to
       // the surface, report these again immediately.
       maybeRenotifyVideoSizeChanged();
@@ -553,7 +562,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 
   @Override
   protected boolean shouldInitCodec(MediaCodecInfo codecInfo) {
-    return surface != null || shouldUseDummySurface(codecInfo);
+    return surfaces.size() > 0 || shouldUseDummySurface(codecInfo);
   }
 
   @Override
@@ -567,14 +576,15 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     String codecMimeType = codecInfo.codecMimeType;
     codecMaxValues = getCodecMaxValues(codecInfo, format, getStreamFormats());
     MediaFormat mediaFormat = getMediaFormat(format, codecMimeType, codecMaxValues, codecOperatingRate, deviceNeedsNoPostProcessWorkaround, tunnelingAudioSessionId);
-    if (surface == null) {
-      Assertions.checkState(shouldUseDummySurface(codecInfo));
-      if (dummySurface == null) {
-        dummySurface = DummySurface.newInstanceV17(context, codecInfo.secure);
-      }
-      surface = dummySurface;
-    }
-    codec.configure(mediaFormat, surface, crypto, 0);
+//    if (surface == null) {
+//      Assertions.checkState(shouldUseDummySurface(codecInfo));
+//      if (dummySurface == null) {
+//        dummySurface = DummySurface.newInstanceV17(context, codecInfo.secure);
+//      }
+//      surface = dummySurface;
+//    }
+    //不传递surface给MediaCodec，才能得到解码出来的视频帧数据
+    codec.configure(mediaFormat, null, crypto, 0);
     if (Util.SDK_INT >= 23 && tunneling) {
       tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
     }
@@ -717,14 +727,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     }
 
     long earlyUs = bufferPresentationTimeUs - positionUs;
-    if (surface == dummySurface) {
+//    if (surface == dummySurface) {
       // Skip frames in sync with playback, so we'll be at the right frame if the mode changes.
       if (isBufferLate(earlyUs)) {
         skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
         return true;
       }
-      return false;
-    }
+//      return false;
+//    }
 
     long elapsedRealtimeNowUs = SystemClock.elapsedRealtime() * 1000;
     long elapsedSinceLastRenderUs = elapsedRealtimeNowUs - lastRenderTimeUs;
@@ -822,6 +832,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
       currentUnappliedRotationDegrees = pendingRotationDegrees;
     }
     // Must be applied each time the output MediaFormat changes.
+    videoGraphicsRenderer.setGraphicsSize(currentWidth, currentHeight);
     codec.setVideoScalingMode(scalingMode);
   }
 
@@ -832,9 +843,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   }
 
   /**
-   * Returns the offset that should be subtracted from {@code bufferPresentationTimeUs} in {@link
-   * #processOutputBuffer(long, long, MediaCodec, ByteBuffer, int, int, long, boolean, boolean,
-   * Format)} to get the playback position with respect to the media.
+   * Returns the offset that should be subtracted from {@code bufferPresentationTimeUs} in
+   * processOutputBuffer(long, long, MediaCodec, ByteBuffer, int, int, long, boolean, boolean,
+   * Format) to get the playback position with respect to the media.
    */
   protected long getOutputStreamOffsetUs() {
     return outputStreamOffsetUs;
@@ -1011,10 +1022,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     TraceUtil.beginSection("releaseOutputBuffer");
     codec.releaseOutputBuffer(index, true);
     if (buffer != null){
-
-    }byte[] data = new byte[outputBufferInfoSize];
-    buffer.get(data);
-    Log.i(TAG,"processOutputBuffer data=" + data.toString());
+      byte[] data = new byte[outputBufferInfoSize];
+      buffer.get(data);
+      //Log.i(TAG,"processOutputBuffer data=" + data.toString());
+      videoGraphicsRenderer.renderGraphicsGl(data);
+    }
     TraceUtil.endSection();
     lastRenderTimeUs = SystemClock.elapsedRealtime() * 1000;
     decoderCounters.renderedOutputBufferCount++;
@@ -1039,7 +1051,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
     if (buffer != null){
       byte[] data = new byte[outputBufferInfoSize];
       buffer.get(data);
-      Log.i(TAG,"processOutputBuffer data=" + data.toString());
+      //Log.i(TAG,"processOutputBuffer data=" + data.toString());
+      videoGraphicsRenderer.renderGraphicsGl(data);
     }
     TraceUtil.endSection();
     lastRenderTimeUs = SystemClock.elapsedRealtime() * 1000;
@@ -1077,13 +1090,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   /* package */ void maybeNotifyRenderedFirstFrame() {
     if (!renderedFirstFrame) {
       renderedFirstFrame = true;
-      eventDispatcher.renderedFirstFrame(surface);
+      eventDispatcher.renderedFirstFrame(null);
     }
   }
 
   private void maybeRenotifyRenderedFirstFrame() {
     if (renderedFirstFrame) {
-      eventDispatcher.renderedFirstFrame(surface);
+      eventDispatcher.renderedFirstFrame(null);
     }
   }
 
@@ -1263,7 +1276,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 
   @Override
   protected DecoderException createDecoderException(Throwable cause, @Nullable MediaCodecInfo codecInfo) {
-    return new VideoDecoderException(cause, codecInfo, surface);
+    return new VideoDecoderException(cause, codecInfo, null);
   }
 
   /**
@@ -1622,7 +1635,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   }
 
   protected Surface getSurface() {
-    return surface;
+    return null;
   }
 
   protected static final class CodecMaxValues {

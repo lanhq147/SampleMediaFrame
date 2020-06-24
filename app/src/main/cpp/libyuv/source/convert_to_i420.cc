@@ -16,8 +16,7 @@
 #include "log.h"
 
 #ifdef __cplusplus
-namespace libyuv {
-    extern "C" {
+namespace libyuv { extern "C" {
 #endif
 
 // Convert camera sample to I420 with cropping, rotation and vertical flip.

@@ -26,6 +26,7 @@ import com.google.android.exoplayer2.C.VideoScalingMode;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.audio.AudioListener;
 import com.google.android.exoplayer2.audio.AuxEffectInfo;
+import com.google.android.exoplayer2.avgraphics.SurfaceEntry;
 import com.google.android.exoplayer2.metadata.MetadataOutput;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.text.TextOutput;
@@ -217,7 +218,7 @@ public interface Player {
      *
      * @param surface The surface to clear.
      */
-    void clearVideoSurface(@Nullable Surface surface);
+    void clearVideoSurface(@Nullable SurfaceEntry surface);
 
     /**
      * Sets the {@link Surface} onto which video will be rendered. The caller is responsible for
@@ -232,7 +233,7 @@ public interface Player {
      *
      * @param surface The {@link Surface}.
      */
-    void setVideoSurface(@Nullable Surface surface);
+    void addVideoSurface(@Nullable SurfaceEntry surface);
 
     /**
      * Sets the {@link SurfaceHolder} that holds the {@link Surface} onto which video will be
@@ -240,7 +241,7 @@ public interface Player {
      *
      * @param surfaceHolder The surface holder.
      */
-    void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
+    //void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
 
     /**
      * Clears the {@link SurfaceHolder} that holds the {@link Surface} onto which video is being
@@ -248,7 +249,7 @@ public interface Player {
      *
      * @param surfaceHolder The surface holder to clear.
      */
-    void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
+    //void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder);
 
     /**
      * Sets the {@link SurfaceView} onto which video will be rendered. The player will track the
@@ -256,7 +257,7 @@ public interface Player {
      *
      * @param surfaceView The surface view.
      */
-    void setVideoSurfaceView(@Nullable SurfaceView surfaceView);
+    //void setVideoSurfaceView(@Nullable SurfaceView surfaceView);
 
     /**
      * Clears the {@link SurfaceView} onto which video is being rendered if it matches the one
@@ -264,7 +265,7 @@ public interface Player {
      *
      * @param surfaceView The texture view to clear.
      */
-    void clearVideoSurfaceView(@Nullable SurfaceView surfaceView);
+    //void clearVideoSurfaceView(@Nullable SurfaceView surfaceView);
 
     /**
      * Sets the {@link TextureView} onto which video will be rendered. The player will track the
@@ -272,7 +273,7 @@ public interface Player {
      *
      * @param textureView The texture view.
      */
-    void setVideoTextureView(@Nullable TextureView textureView);
+    //void setVideoTextureView(@Nullable TextureView textureView);
 
     /**
      * Clears the {@link TextureView} onto which video is being rendered if it matches the one
@@ -280,7 +281,7 @@ public interface Player {
      *
      * @param textureView The texture view to clear.
      */
-    void clearVideoTextureView(@Nullable TextureView textureView);
+    //void clearVideoTextureView(@Nullable TextureView textureView);
 
     /**
      * Sets the video decoder output buffer renderer. This is intended for use only with extension

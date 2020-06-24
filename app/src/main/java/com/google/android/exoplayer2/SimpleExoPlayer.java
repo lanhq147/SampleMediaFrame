@@ -35,6 +35,7 @@ import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.audio.AudioListener;
 import com.google.android.exoplayer2.audio.AudioRendererEventListener;
 import com.google.android.exoplayer2.audio.AuxEffectInfo;
+import com.google.android.exoplayer2.avgraphics.SurfaceEntry;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.android.exoplayer2.drm.DefaultDrmSessionManager;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
@@ -300,7 +301,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
   @Nullable private Format audioFormat;
 
   @Nullable private VideoDecoderOutputBufferRenderer videoDecoderOutputBufferRenderer;
-  @Nullable private Surface surface;
+  @Nullable private List<SurfaceEntry> surfaces;
   private boolean ownsSurface;
   private @C.VideoScalingMode int videoScalingMode;
   @Nullable private SurfaceHolder surfaceHolder;
@@ -370,6 +371,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
     metadataOutputs = new CopyOnWriteArraySet<>();
     videoDebugListeners = new CopyOnWriteArraySet<>();
     audioDebugListeners = new CopyOnWriteArraySet<>();
+    surfaces = new ArrayList<>();
     eventHandler = new Handler(looper);
     renderers = renderersFactory.createRenderers( eventHandler, componentListener, componentListener, componentListener, componentListener, drmSessionManager);
 
@@ -461,15 +463,15 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
   }
 
   @Override
-  public void clearVideoSurface(Surface surface) {
+  public void clearVideoSurface(SurfaceEntry surface) {
     verifyApplicationThread();
-    if (surface != null && surface == this.surface) {
+    if (surface != null) {
       clearVideoSurface();
     }
   }
 
   @Override
-  public void setVideoSurface(Surface surface) {
+  public void addVideoSurface(SurfaceEntry surface) {
     verifyApplicationThread();
     removeSurfaceCallbacks();
     if (surface != null) {
@@ -480,83 +482,83 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
     maybeNotifySurfaceSizeChanged(/* width= */ newSurfaceSize, /* height= */ newSurfaceSize);
   }
 
-  @Override
-  public void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
-    verifyApplicationThread();
-    removeSurfaceCallbacks();
-    if (surfaceHolder != null) {
-      clearVideoDecoderOutputBufferRenderer();
-    }
-    this.surfaceHolder = surfaceHolder;
-    if (surfaceHolder == null) {
-      setVideoSurfaceInternal(null, /* ownsSurface= */ false);
-      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
-    } else {
-      surfaceHolder.addCallback(componentListener);
-      Surface surface = surfaceHolder.getSurface();
-      if (surface != null && surface.isValid()) {
-        setVideoSurfaceInternal(surface, /* ownsSurface= */ false);
-        Rect surfaceSize = surfaceHolder.getSurfaceFrame();
-        maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
-      } else {
-        setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ false);
-        maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
-      }
-    }
-  }
-
-  @Override
-  public void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
-    verifyApplicationThread();
-    if (surfaceHolder != null && surfaceHolder == this.surfaceHolder) {
-      setVideoSurfaceHolder(null);
-    }
-  }
-
-  @Override
-  public void setVideoSurfaceView(@Nullable SurfaceView surfaceView) {
-    setVideoSurfaceHolder(surfaceView == null ? null : surfaceView.getHolder());
-  }
-
-  @Override
-  public void clearVideoSurfaceView(@Nullable SurfaceView surfaceView) {
-    clearVideoSurfaceHolder(surfaceView == null ? null : surfaceView.getHolder());
-  }
-
-  @Override
-  public void setVideoTextureView(@Nullable TextureView textureView) {
-    verifyApplicationThread();
-    removeSurfaceCallbacks();
-    if (textureView != null) {
-      clearVideoDecoderOutputBufferRenderer();
-    }
-    this.textureView = textureView;
-    if (textureView == null) {
-      setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ true);
-      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
-    } else {
-      if (textureView.getSurfaceTextureListener() != null) {
-        Log.w(TAG, "Replacing existing SurfaceTextureListener.");
-      }
-      textureView.setSurfaceTextureListener(componentListener);
-      SurfaceTexture surfaceTexture = textureView.isAvailable() ? textureView.getSurfaceTexture() : null;
-      if (surfaceTexture == null) {
-        setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ true);
-        maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
-      } else {
-        setVideoSurfaceInternal(new Surface(surfaceTexture), /* ownsSurface= */ true);
-        maybeNotifySurfaceSizeChanged(textureView.getWidth(), textureView.getHeight());
-      }
-    }
-  }
-
-  @Override
-  public void clearVideoTextureView(TextureView textureView) {
-    verifyApplicationThread();
-    if (textureView != null && textureView == this.textureView) {
-      setVideoTextureView(null);
-    }
-  }
+//  @Override
+//  public void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+//    verifyApplicationThread();
+//    removeSurfaceCallbacks();
+//    if (surfaceHolder != null) {
+//      clearVideoDecoderOutputBufferRenderer();
+//    }
+//    this.surfaceHolder = surfaceHolder;
+//    if (surfaceHolder == null) {
+//      setVideoSurfaceInternal(null, /* ownsSurface= */ false);
+//      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+//    } else {
+//      surfaceHolder.addCallback(componentListener);
+//      Surface surface = surfaceHolder.getSurface();
+//      if (surface != null && surface.isValid()) {
+//        setVideoSurfaceInternal(surface, /* ownsSurface= */ false);
+//        Rect surfaceSize = surfaceHolder.getSurfaceFrame();
+//        maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
+//      } else {
+//        setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ false);
+//        maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+//      }
+//    }
+//  }
+//
+//  @Override
+//  public void clearVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+//    verifyApplicationThread();
+//    if (surfaceHolder != null && surfaceHolder == this.surfaceHolder) {
+//      setVideoSurfaceHolder(null);
+//    }
+//  }
+//
+//  @Override
+//  public void setVideoSurfaceView(@Nullable SurfaceView surfaceView) {
+//    setVideoSurfaceHolder(surfaceView == null ? null : surfaceView.getHolder());
+//  }
+//
+//  @Override
+//  public void clearVideoSurfaceView(@Nullable SurfaceView surfaceView) {
+//    clearVideoSurfaceHolder(surfaceView == null ? null : surfaceView.getHolder());
+//  }
+//
+//  @Override
+//  public void setVideoTextureView(@Nullable TextureView textureView) {
+//    verifyApplicationThread();
+//    removeSurfaceCallbacks();
+//    if (textureView != null) {
+//      clearVideoDecoderOutputBufferRenderer();
+//    }
+//    this.textureView = textureView;
+//    if (textureView == null) {
+//      setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ true);
+//      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+//    } else {
+//      if (textureView.getSurfaceTextureListener() != null) {
+//        Log.w(TAG, "Replacing existing SurfaceTextureListener.");
+//      }
+//      textureView.setSurfaceTextureListener(componentListener);
+//      SurfaceTexture surfaceTexture = textureView.isAvailable() ? textureView.getSurfaceTexture() : null;
+//      if (surfaceTexture == null) {
+//        setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ true);
+//        maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+//      } else {
+//        setVideoSurfaceInternal(new Surface(surfaceTexture), /* ownsSurface= */ true);
+//        maybeNotifySurfaceSizeChanged(textureView.getWidth(), textureView.getHeight());
+//      }
+//    }
+//  }
+//
+//  @Override
+//  public void clearVideoTextureView(TextureView textureView) {
+//    verifyApplicationThread();
+//    if (textureView != null && textureView == this.textureView) {
+//      setVideoTextureView(null);
+//    }
+//  }
 
   @Override
   public void setVideoDecoderOutputBufferRenderer(VideoDecoderOutputBufferRenderer videoDecoderOutputBufferRenderer) {
@@ -1235,11 +1237,14 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
     audioFocusManager.release();
     player.release();
     removeSurfaceCallbacks();
-    if (surface != null) {
+    if (surfaces.size() > 0) {
       if (ownsSurface) {
-        surface.release();
+        //surface.release();
+        for (SurfaceEntry surface : surfaces){
+          surface.getSurface().release();
+        }
       }
-      surface = null;
+      surfaces.clear();
     }
     if (mediaSource != null) {
       mediaSource.removeEventListener(analyticsCollector);
@@ -1429,7 +1434,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
     }
   }
 
-  private void setVideoSurfaceInternal(Surface surface, boolean ownsSurface) {
+  private void setVideoSurfaceInternal(SurfaceEntry surface, boolean ownsSurface) {
     // Note: We don't turn this method into a no-op if the surface is being replaced with itself
     // so as to ensure onRenderedFirstFrame callbacks are still called in this case.
     List<PlayerMessage> messages = new ArrayList<>();
@@ -1438,7 +1443,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
         messages.add( player.createMessage(renderer).setType(C.MSG_SET_SURFACE).setPayload(surface).send());
       }
     }
-    if (this.surface != null && this.surface != surface) {
+    if (this.surfaces.size() > 0 && surfaces.contains(surface)) {
       // We're replacing a surface. Block to ensure that it's not accessed after the method returns.
       try {
         for (PlayerMessage message : messages) {
@@ -1448,16 +1453,16 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
         Thread.currentThread().interrupt();
       }
       // If we created the previous surface, we are responsible for releasing it.
-      if (this.ownsSurface) {
-        this.surface.release();
-      }
+      //if (this.ownsSurface) {
+        //this.surface.release();
+      //}
     }
-    this.surface = surface;
+    //this.surface = surface;
+    surfaces.add(surface);
     this.ownsSurface = ownsSurface;
   }
 
-  private void setVideoDecoderOutputBufferRendererInternal(
-      @Nullable VideoDecoderOutputBufferRenderer videoDecoderOutputBufferRenderer) {
+  private void setVideoDecoderOutputBufferRendererInternal(VideoDecoderOutputBufferRenderer videoDecoderOutputBufferRenderer) {
     for (Renderer renderer : renderers) {
       if (renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
         player.createMessage(renderer).setType(C.MSG_SET_VIDEO_DECODER_OUTPUT_BUFFER_RENDERER).setPayload(videoDecoderOutputBufferRenderer).send();
@@ -1579,7 +1584,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
 
     @Override
     public void onRenderedFirstFrame(Surface surface) {
-      if (SimpleExoPlayer.this.surface == surface) {
+      if (SimpleExoPlayer.this.surfaces.contains(surface)) {
         for (com.google.android.exoplayer2.video.VideoListener videoListener : videoListeners) {
           videoListener.onRenderedFirstFrame();
         }
@@ -1684,7 +1689,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-      setVideoSurfaceInternal(holder.getSurface(), false);
+      //setVideoSurfaceInternal(holder.getSurface(), false);
     }
 
     @Override
@@ -1694,7 +1699,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-      setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ false);
+      //setVideoSurfaceInternal(/* surface= */ null, /* ownsSurface= */ false);
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
 
@@ -1702,7 +1707,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer, Player.Aud
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
-      setVideoSurfaceInternal(new Surface(surfaceTexture), /* ownsSurface= */ true);
+      //setVideoSurfaceInternal(new Surface(surfaceTexture), /* ownsSurface= */ true);
       maybeNotifySurfaceSizeChanged(width, height);
     }
 

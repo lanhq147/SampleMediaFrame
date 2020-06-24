@@ -2,6 +2,11 @@
   <dictionary name="lanhq">
     <words>
       <w>asucceed</w>
+      <w>ffcodec</w>
+      <w>ffmpeg</w>
+      <w>gles</w>
+      <w>sles</w>
+      <w>surfaceview</w>
       <w>vsucceed</w>
     </words>
   </dictionary>
