@@ -71,7 +71,7 @@ public class VideoGraphicsRenderer {
     }
 
     protected void renderGraphicsGl(byte[] graphics){
-        Log.i(TAG,"renderGraphicsGl graphics.length=" + graphics.length);
+        //Log.i(TAG,"renderGraphicsGl graphics.length=" + graphics.length + ",gWidth=" + gWidth + ",gHeight=" + gHeight);
         _drawGL(graphics, graphics.length, gWidth, gHeight, PIXEL_FORMAT_NV12, mMatrix);
     }
 

@@ -527,7 +527,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 //    }
     // We only need to update the codec if the surface has changed.
     videoGraphicsRenderer.addSurfaceEntry(surface);
-    if (this.surfaces.contains(surface)) {
+    if (!this.surfaces.contains(surface)) {
       this.surfaces.add(surface);
       int state = getState();
       MediaCodec codec = getCodec();
@@ -584,6 +584,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 //      surface = dummySurface;
 //    }
     //不传递surface给MediaCodec，才能得到解码出来的视频帧数据
+    Log.i("MediaCodecVideoRenderer","configureCodec surface isEmpty=" + surfaces.isEmpty());
+    //codec.configure(mediaFormat, surfaces.isEmpty() ? null : surfaces.get(0).getSurface(), crypto, 0);
     codec.configure(mediaFormat, null, crypto, 0);
     if (Util.SDK_INT >= 23 && tunneling) {
       tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
@@ -1020,13 +1022,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   protected void renderOutputBuffer(MediaCodec codec, int index, long presentationTimeUs,ByteBuffer buffer,int outputBufferInfoSize) {
     maybeNotifyVideoSizeChanged();
     TraceUtil.beginSection("releaseOutputBuffer");
-    codec.releaseOutputBuffer(index, true);
     if (buffer != null){
       byte[] data = new byte[outputBufferInfoSize];
       buffer.get(data);
       //Log.i(TAG,"processOutputBuffer data=" + data.toString());
       videoGraphicsRenderer.renderGraphicsGl(data);
     }
+    codec.releaseOutputBuffer(index, true);
     TraceUtil.endSection();
     lastRenderTimeUs = SystemClock.elapsedRealtime() * 1000;
     decoderCounters.renderedOutputBufferCount++;
@@ -1047,13 +1049,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
   protected void renderOutputBufferV21(MediaCodec codec, int index, long presentationTimeUs, long releaseTimeNs,ByteBuffer buffer,int outputBufferInfoSize) {
     maybeNotifyVideoSizeChanged();
     TraceUtil.beginSection("releaseOutputBuffer");
-    codec.releaseOutputBuffer(index, releaseTimeNs);
     if (buffer != null){
       byte[] data = new byte[outputBufferInfoSize];
       buffer.get(data);
       //Log.i(TAG,"processOutputBuffer data=" + data.toString());
       videoGraphicsRenderer.renderGraphicsGl(data);
     }
+    codec.releaseOutputBuffer(index, releaseTimeNs);
     TraceUtil.endSection();
     lastRenderTimeUs = SystemClock.elapsedRealtime() * 1000;
     decoderCounters.renderedOutputBufferCount++;
@@ -1158,7 +1160,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer {
 
   @TargetApi(23)
   private static void setOutputSurfaceV23(MediaCodec codec, Surface surface) {
-    codec.setOutputSurface(surface);
+    //codec.setOutputSurface(surface);
   }
 
   @TargetApi(21)

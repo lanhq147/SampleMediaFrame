@@ -251,10 +251,10 @@ public final class ProgressiveMediaSource extends BaseMediaSource implements Pro
 
   @Override
   public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
-    StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-    for (StackTraceElement stackTraceElement : elements){
-      Log.i("ProgressiveMediaSource","ClassName=" + stackTraceElement.getClassName() + ",MethodName=" + stackTraceElement.getMethodName());
-    }
+//    StackTraceElement[] elements = Thread.currentThread().getStackTrace();
+//    for (StackTraceElement stackTraceElement : elements){
+//      Log.i("ProgressiveMediaSource","ClassName=" + stackTraceElement.getClassName() + ",MethodName=" + stackTraceElement.getMethodName());
+//    }
 
     DataSource dataSource = dataSourceFactory.createDataSource();
     if (transferListener != null) {

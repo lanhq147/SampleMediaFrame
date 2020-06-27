@@ -27,6 +27,11 @@ android {
         }
     }
 
+    sourceSets.main {
+        jni.srcDirs = []
+        jniLibs.srcDirs = ['libs']
+    }
+
     compileOptions {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8

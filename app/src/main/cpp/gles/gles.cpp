@@ -4,13 +4,14 @@
 //
 
 #include <jni.h>
-#include <set>
 #include <android/native_window_jni.h>
 #include <log.h>
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include <mutex>
 #include <thread>
+#include <set>
+#include <list>
 #include "Square.h"
 #include "Triangle.h"
 #include "Circle.h"
@@ -477,8 +478,8 @@ Java_com_steven_avgraphics_view_CameraPreviewView__1stop(JNIEnv *env, jclass typ
 
 
 // --- VideoPlayActivity
-//YuvRenderer *yuvRenderer = nullptr;
-set<YuvRenderer> yuvRenderers;
+YuvRenderer *yuvRenderer = nullptr;
+//list<YuvRenderer> yuvRenderers;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -488,18 +489,17 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1addSurface(JNIE
                                                                 jint imgHeight, jint frameRate,
                                                                 jobject manager) {
     unique_lock<mutex> lock(gMutex);
-//    if (yuvRenderer) {
-//        yuvRenderer->stop();
-//        delete yuvRenderer;
-//    }
+    if (yuvRenderer) {
+        yuvRenderer->stop();
+        delete yuvRenderer;
+    }
     AAssetManager *assetManager = AAssetManager_fromJava(env, manager);
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-    YuvRenderer *yuvRenderer = new YuvRenderer(window);
+    yuvRenderer = new YuvRenderer(window);
     yuvRenderer->setAssetManager(assetManager);
     yuvRenderer->setTexSize(imgWidth, imgHeight);
     yuvRenderer->resize(width, height);
     yuvRenderer->start();
-    yuvRenderers.insert(*yuvRenderer);
 }
 
 extern "C"
@@ -510,7 +510,7 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *
                                                                jint pixelFormat,
                                                                jfloatArray matrix_) {
     unique_lock<mutex> lock(gMutex);
-    if (yuvRenderers.empty()) {
+    if (!yuvRenderer) {
         LOGE("yuvRenderer is null");
         return;
     }
@@ -527,12 +527,9 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *
     Yuv *yuv = convertToI420(model);
 
     if (yuv) {
-        set<YuvRenderer>::iterator yuvRenderer;
-        for(yuvRenderer = yuvRenderers.begin(); yuvRenderer != yuvRenderers.end(); yuvRenderer++){
-            yuvRenderer->setYuv(yuv);
-            yuvRenderer->setMatrix(matrix);
-            yuvRenderer->draw();
-        }
+        yuvRenderer->setYuv(yuv);
+        yuvRenderer->setMatrix(matrix);
+        yuvRenderer->draw();
     }
 
     env->ReleaseByteArrayElements(pixel_, pixel, 0);
@@ -551,4 +548,7 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1stopGL(JNIEnv *
         delete yuvRenderer;
         yuvRenderer = nullptr;
     }
-    LOGI("video player stopped")
+    LOGI("video player stopped");
+}
+
+#pragma clang diagnostic pop
