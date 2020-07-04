@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="com.steven.avgraphics.activity.HWCodecActivity">
+
+    <com.steven.avgraphics.view.CameraPreviewView
+        android:id="@+id/hwcodec_cpv_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center_horizontal"
+        android:layout_marginBottom="@dimen/margin_normal"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/hwcodec_btn_decode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hwcodec_btn_decode" />
+
+        <Button
+            android:id="@+id/hwcodec_btn_transcode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hwcodec_btn_transcode" />
+
+        <Button
+            android:id="@+id/hwcodec_btn_start_record"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hwcodec_btn_start" />
+
+        <Button
+            android:id="@+id/hwcodec_btn_stop_record"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="@string/hwcodec_btn_stop" />
+    </LinearLayout>
+</FrameLayout>

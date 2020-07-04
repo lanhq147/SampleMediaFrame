@@ -10,8 +10,6 @@
 #include <android/asset_manager_jni.h>
 #include <mutex>
 #include <thread>
-#include <set>
-#include <list>
 #include "Square.h"
 #include "Triangle.h"
 #include "Circle.h"
@@ -479,11 +477,11 @@ Java_com_steven_avgraphics_view_CameraPreviewView__1stop(JNIEnv *env, jclass typ
 
 // --- VideoPlayActivity
 YuvRenderer *yuvRenderer = nullptr;
-//list<YuvRenderer> yuvRenderers;
+YuvRenderer *yuvRenderer1 = nullptr;
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1addSurface(JNIEnv *env, jclass type,
+Java_com_steven_avgraphics_activity_VideoPlayActivity__1startGL(JNIEnv *env, jclass type,
                                                                 jobject surface, jint width,
                                                                 jint height, jint imgWidth,
                                                                 jint imgHeight, jint frameRate,
@@ -493,6 +491,7 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1addSurface(JNIE
         yuvRenderer->stop();
         delete yuvRenderer;
     }
+
     AAssetManager *assetManager = AAssetManager_fromJava(env, manager);
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     yuvRenderer = new YuvRenderer(window);
@@ -504,7 +503,30 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1addSurface(JNIE
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *env, jclass type,
+Java_com_steven_avgraphics_activity_VideoPlayActivity__1startGL1(JNIEnv *env, jclass type,
+                                                                jobject surface,jint width,
+                                                                jint height, jint imgWidth,
+                                                                jint imgHeight, jint frameRate,
+                                                                jobject manager) {
+    unique_lock<mutex> lock(gMutex);
+
+    if (yuvRenderer1) {
+        yuvRenderer1->stop();
+        delete yuvRenderer1;
+    }
+
+    AAssetManager *assetManager1 = AAssetManager_fromJava(env, manager);
+    ANativeWindow *window1 = ANativeWindow_fromSurface(env, surface);
+    yuvRenderer1 = new YuvRenderer(window1);
+    yuvRenderer1->setAssetManager(assetManager1);
+    yuvRenderer1->setTexSize(imgWidth, imgHeight);
+    yuvRenderer1->resize(width, height);
+    yuvRenderer1->start();
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_steven_avgraphics_activity_VideoPlayActivity__1drawGL(JNIEnv *env, jclass type,
                                                                jbyteArray pixel_, jint length,
                                                                jint imgWidth, jint imgHeight,
                                                                jint pixelFormat,
@@ -526,10 +548,16 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *
     model->height = imgHeight;
     Yuv *yuv = convertToI420(model);
 
-    if (yuv) {
+    if (yuv && yuvRenderer) {
         yuvRenderer->setYuv(yuv);
         yuvRenderer->setMatrix(matrix);
         yuvRenderer->draw();
+
+        if(yuvRenderer1){
+            yuvRenderer1->setYuv(yuv);
+            yuvRenderer1->setMatrix(matrix);
+            yuvRenderer1->draw();
+        }
     }
 
     env->ReleaseByteArrayElements(pixel_, pixel, 0);
@@ -541,14 +569,20 @@ Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1drawGL(JNIEnv *
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_google_android_exoplayer2_video_VideoGraphicsRenderer__1stopGL(JNIEnv *env, jclass type) {
+Java_com_steven_avgraphics_activity_VideoPlayActivity__1stopGL(JNIEnv *env, jclass type) {
     unique_lock<mutex> lock(gMutex);
     if (yuvRenderer) {
         yuvRenderer->stop();
         delete yuvRenderer;
         yuvRenderer = nullptr;
     }
+
+    if (yuvRenderer1) {
+        yuvRenderer1->stop();
+        delete yuvRenderer1;
+        yuvRenderer1 = nullptr;
+    }
     LOGI("video player stopped");
 }
 
-#pragma clang diagnostic pop
+#pragma clang diagnostic po
